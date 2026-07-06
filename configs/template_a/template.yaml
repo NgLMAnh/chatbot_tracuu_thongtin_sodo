@@ -16,7 +16,7 @@ page_detection:
       - "Nơi thường trú"
       - "Bà"
       - "Ông"
-    min_keyword_matches: 1
+    min_keyword_matches: 2
 
   land_info:
     keywords:

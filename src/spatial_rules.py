@@ -67,33 +67,37 @@ def find_best_anchor(ocr_results, anchor_keywords):
     
     for item in ocr_results:
         text_lower = item["text"].lower().strip()
-        # Clean leading punctuation/symbols to find clean starts
         text_clean = re.sub(r'^[^\w\s]+', '', text_lower).strip()
         norm_text = normalize_text(item["text"])
         
-        for kw in anchor_keywords:
+        for kw_idx, kw in enumerate(anchor_keywords):
             norm_kw = normalize_text(kw)
+            if not norm_kw: continue
             
             # Check exact match first
             if norm_text == norm_kw:
-                matches.append((item, 100.0, len(item["text"])))
+                matches.append((item, 100.0, len(item["text"]), kw_idx))
                 continue
                 
             # Check flexible regex
             pattern = flexible_regexes.get(norm_kw)
+            matched = False
             if pattern:
                 deaccented_pattern = remove_accents(pattern)
                 # For ba and ong, require match at the beginning of clean text
                 if norm_kw in ["ba", "ong"]:
                     if re.search(pattern, text_clean) or re.search(deaccented_pattern, remove_accents(text_clean)):
-                        matches.append((item, 90.0, len(item["text"])))
-                        continue
+                        matches.append((item, 90.0, len(item["text"]), kw_idx))
+                        matched = True
                 else:
                     if re.search(pattern, text_lower) or re.search(deaccented_pattern, norm_text):
                         similarity = len(norm_kw) / max(1, len(norm_text))
-                        matches.append((item, similarity, len(item["text"])))
-                        continue
+                        matches.append((item, similarity, len(item["text"]), kw_idx))
+                        matched = True
             
+            if matched:
+                continue
+                
             # For short keywords like ba and ong, do not use standard substring search
             if norm_kw in ["ba", "ong"]:
                 continue
@@ -102,13 +106,16 @@ def find_best_anchor(ocr_results, anchor_keywords):
             pattern_wb = r'\b' + re.escape(norm_kw) + r'\b'
             if re.search(pattern_wb, norm_text):
                 similarity = len(norm_kw) / max(1, len(norm_text))
-                matches.append((item, similarity, len(item["text"])))
+                matches.append((item, similarity, len(item["text"]), kw_idx))
                 
     if not matches:
         return None
         
-    # Sort matches by similarity score descending, and then by text length ascending
-    matches.sort(key=lambda x: (-x[1], x[2]))
+    # Sort matches by:
+    # 1. kw_idx ascending (prioritize earlier keywords in YAML)
+    # 2. similarity score descending
+    # 3. text length ascending
+    matches.sort(key=lambda x: (x[3], -x[1], x[2]))
     return matches[0][0]
 
 def same_row(box_a, box_b, min_overlap=0.4):

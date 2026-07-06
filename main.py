@@ -1,6 +1,11 @@
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 import sys
+
+# Tự động chuyển console output sang UTF-8 để không bị lỗi font tiếng Việt trên Windows
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+
 import json
 import yaml
 
@@ -77,7 +82,7 @@ def main():
             continue
             
         print(f"\nProcessing document: {doc_id} ({len(image_files)} pages)")
-        page_results = []
+        page_results_dict = {}
         
         for img_name in image_files:
             img_path = os.path.join(doc_path, img_name)
@@ -86,58 +91,42 @@ def main():
             try:
                 # Perform OCR
                 ocr_results = ocr_engine.run_ocr(img_path)
-                
-                # Join all OCR text and normalize
-                full_text = " ".join([r["text"] for r in ocr_results])
-                norm_full_text = normalize_text(full_text)
-                
-                # Check keyword matches for each page type
-                matched_types = []
-                page_detection = template_config.get("page_detection", {})
-                
-                for ptype, config in page_detection.items():
-                    keywords = config.get("keywords", [])
-                    min_matches = config.get("min_keyword_matches", 1)
-                    
-                    matches = sum(1 for kw in keywords if re.search(r'\b' + re.escape(normalize_text(kw)) + r'\b', norm_full_text))
-                    if matches >= min_matches:
-                        matched_types.append(ptype)
-                        
-                print(f"    -> Matched page types: {matched_types}")
-                
-                for page_type in matched_types:
-                    # Load page config
-                    page_config_path = os.path.join(configs_dir, "pages", f"{page_type}.yaml")
-                    page_config = load_yaml(page_config_path)
-                    
-                    # Extract raw fields
-                    raw_fields = extract_fields(ocr_results, page_config)
-                    
-                    # Normalize fields
-                    normalized_fields = normalize_fields(raw_fields)
-                    
-                    print(f"    -> Extracted {page_type} fields: {normalized_fields}")
-                    page_results.append({
-                        "page_type": page_type,
-                        "fields": normalized_fields
-                    })
+                page_results_dict[img_name] = ocr_results
             except Exception as e:
                 import traceback
                 print(f"    -> Error processing page {img_name}: {e}")
                 traceback.print_exc()
                 
-        # 5. Merge results for this document
-        doc_json = merge_pages(doc_id, page_results)
+        # 5. Format as Markdown
+        from src.text_formatter import format_as_markdown
+        md_text = format_as_markdown(page_results_dict)
         
-        # Save output JSON
-        output_file = os.path.join(outputs_dir, f"{doc_id}.json")
+        # Save Markdown
+        md_dir = os.path.join(base_dir, "outputs", "markdowns")
+        os.makedirs(md_dir, exist_ok=True)
+        md_file = os.path.join(md_dir, f"{doc_id}.md")
         try:
-            with open(output_file, "w", encoding="utf-8") as f:
-                json.dump(doc_json, f, ensure_ascii=False, indent=2)
-            print(f"\nSUCCESS: Document {doc_id} result saved to: {output_file}")
-            print(json.dumps(doc_json, ensure_ascii=False, indent=2))
+            with open(md_file, "w", encoding="utf-8") as f:
+                f.write(md_text)
+            print(f"    -> Saved markdown to: {md_file}")
         except Exception as e:
-            print(f"Error saving result for {doc_id}: {e}")
+            print(f"    -> Error saving markdown for {doc_id}: {e}")
+        
+        # 6. Extract using LLM (RAG)
+        print("  - Extracting information using LLM...")
+        from src.llm_extractor import extract_information
+        doc_json = extract_information(doc_id, md_text)
+        
+        if doc_json:
+            # Save output JSON
+            output_file = os.path.join(outputs_dir, f"{doc_id}.json")
+            try:
+                with open(output_file, "w", encoding="utf-8") as f:
+                    json.dump(doc_json, f, ensure_ascii=False, indent=2)
+                print(f"\nSUCCESS: Document {doc_id} result saved to: {output_file}")
+                print(json.dumps(doc_json, ensure_ascii=False, indent=2))
+            except Exception as e:
+                print(f"Error saving result for {doc_id}: {e}")
             
     print("\n" + "=" * 80)
     print(" PIPELINE COMPLETED")

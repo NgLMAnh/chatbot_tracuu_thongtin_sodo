@@ -22,11 +22,12 @@ def is_better_value(new_val, old_val, field_name):
     old_score = get_value_score(old_val, field_name)
     new_score = get_value_score(new_val, field_name)
     
-    # If we already have a reasonably good value (score >= 5) from an earlier page,
-    # we KEEP it. This prevents overwriting the main holder (Mục I on page 1) 
-    # with buyers/sellers (Mục III/IV on page 2).
-    if old_score >= 5:
-        return False
+    # In land certificates, the later pages contain the most recent updates
+    # (Thay đổi về chủ). We want the FINAL owner.
+    # So if the new value is reasonably valid (score >= 5), we ALWAYS prefer it
+    # over the old value from an earlier page.
+    if new_score >= 5:
+        return True
         
     return new_score > old_score
 
