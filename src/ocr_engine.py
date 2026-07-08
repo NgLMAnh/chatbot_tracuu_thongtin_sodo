@@ -35,7 +35,18 @@ class OCREngine:
             sys.exit(1)
             
         # 1. Initialize PaddleOCR ONLY for detection
-        self.det_model = PaddleOCR(use_angle_cls=True, det=True, rec=False, lang='vi', show_log=False, use_gpu=gpu)
+        self.det_model = PaddleOCR(
+            use_angle_cls=True, 
+            det=True, 
+            rec=False, 
+            lang='vi', 
+            show_log=False, 
+            use_gpu=gpu,
+            det_limit_side_len=2048,     # Ngăn model resize ảnh xuống quá nhỏ, giúp giữ chi tiết chữ
+            det_db_thresh=0.3,           # Ngưỡng nhị phân hóa, giảm nhẹ để bắt được chữ mờ
+            det_db_box_thresh=0.5,       # Ngưỡng box, giảm nhẹ để không sót box
+            det_db_unclip_ratio=1.6      # Mở rộng bounding box một chút để không bị cắt lẹm dấu tiếng Việt
+        )
         
         # 2. Initialize VietOCR for recognition
         config = self._load_vietocr_config()
@@ -98,8 +109,15 @@ class OCREngine:
             ys = [p[1] for p in box]
             lx1, ly1, lx2, ly2 = min(xs), min(ys), max(xs), max(ys)
             
-            pad = 2
-            crop_img = img.crop((max(0, lx1 - pad), max(0, ly1 - pad), min(img.width, lx2 + pad), min(img.height, ly2 + pad)))
+            # Căn chỉnh thêm padding để VietOCR đọc không bị lẹm nét (đặc biệt là dấu tiếng Việt như huyền, ngã, nặng)
+            pad_x = 3
+            pad_y = 5
+            crop_img = img.crop((
+                max(0, lx1 - pad_x), 
+                max(0, ly1 - pad_y), 
+                min(img.width, lx2 + pad_x), 
+                min(img.height, ly2 + pad_y)
+            ))
             text, prob = self.rec_model.predict(crop_img, return_prob=True)
             
             if text.strip():

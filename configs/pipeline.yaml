@@ -4,6 +4,7 @@ pipeline:
   version: "2.0"
 
 layout:
+  use_ppstructure: false
   model: "PP-DocLayout-L"
   use_gpu: false
   enable_mkldnn: false
@@ -41,6 +42,7 @@ field_extraction:
     direction: ["right", "below"]
     max_distance_y: 50
     same_line_preferred: true
+    join_same_row: true
   
   birthday:
     anchors:
@@ -69,6 +71,7 @@ field_extraction:
       - "Địa chỉ"
     target_sections: ["holder_info", "land_info"]
     direction: ["right", "below"]
+    max_distance_y: 250
     multiline: true
 
   parcel_number:

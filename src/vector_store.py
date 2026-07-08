@@ -11,9 +11,14 @@ def create_vector_store(chunks, persist_directory="outputs/chroma_db"):
         print("Không có chunks nào để đưa vào DB.")
         return None
         
+    import shutil
+    if os.path.exists(persist_directory):
+        print(f"Đang xóa database cũ tại {persist_directory}...")
+        shutil.rmtree(persist_directory)
+        
     print(f"Đang load embedding model...")
-    # Sử dụng mô hình đa ngôn ngữ nhỏ gọn, chạy tốt trên CPU và hỗ trợ tiếng Việt
-    embeddings = HuggingFaceEmbeddings(model_name="keepitreal/vietnamese-sbert")
+    # Sử dụng BGE-M3: Mô hình đa ngôn ngữ siêu việt, tối ưu RAG
+    embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-m3")
     
     # Chuyển đổi định dạng list[dict] sang list[str] và list[dict] metadatas cho Chroma
     texts = [chunk["content"] for chunk in chunks]
@@ -34,5 +39,6 @@ def create_vector_store(chunks, persist_directory="outputs/chroma_db"):
 
 def load_vector_store(persist_directory="outputs/chroma_db"):
     """Load Chroma DB đã lưu."""
-    embeddings = HuggingFaceEmbeddings(model_name="keepitreal/vietnamese-sbert")
+    embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-m3")
     return Chroma(persist_directory=persist_directory, embedding_function=embeddings)
+

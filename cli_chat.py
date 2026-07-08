@@ -19,11 +19,11 @@ def main():
         print(f"❌ Lỗi tải Vector DB: {e}. Bạn đã chạy bước Embedding (test_embedding.py) chưa?")
         return
         
-    print("⏳ Đang khởi tạo mô hình AI (Ollama qwen2.5:1.5b)...")
+    print("⏳ Đang khởi tạo mô hình AI (Ollama qwen2.5:7b)...")
     try:
-        llm = Ollama(model="qwen2.5:1.5b", temperature=0.0)
+        llm = Ollama(model="qwen2.5:7b", temperature=0.0)
     except Exception as e:
-        print(f"❌ Lỗi tải Ollama: {e}")
+        print(f"Lỗi tải Ollama: {e}")
         return
 
     prompt_template = """Bạn là một trợ lý thông minh chuyên giải đáp các câu hỏi về thông tin Giấy chứng nhận quyền sử dụng đất (Sổ đỏ/Sổ hồng).
@@ -32,18 +32,22 @@ Nếu thông tin không có trong NỘI DUNG TRÍCH XUẤT, hãy trả lời tru
 
 ĐẶC BIỆT LƯU Ý:
 1. Nếu có thông tin từ nhiều nguồn tài liệu khác nhau, hãy phân loại câu trả lời rõ ràng theo từng tài liệu.
-2. Người ký giấy tờ (Chủ tịch, Phó Chủ tịch, Ủy viên, Chủ hộ, Giám đốc, ví dụ có các cụm từ "KT. CHỦ TỊCH", "PHÓ CHỦ TỊCH") KHÔNG PHẢI là chủ sở hữu.
-3. Nếu người dùng hỏi về Chủ sở hữu, hãy chú ý tìm người có các từ "Ông:", "Bà:" kèm theo Năm sinh và CMND, thay vì người ký giấy.
-4. Nếu người dùng hỏi về Địa chỉ, Diện tích, hay Thửa đất, hãy tìm thông tin tương ứng thường nằm ở Mục II (Thực trạng nhà ở, đất ở).
+2. ƯU TIÊN SỐ 1: Nếu trong NỘI DUNG TRÍCH XUẤT có phần "# document_summary" hoặc "extracted_fields" (chứa các trường như chu_so_huu, cmnd_cccd, dia_chi, dien_tich_m2...), BẮT BUỘC phải sử dụng thông tin ở phần này vì đây là dữ liệu chính xác nhất.
+3. Người ký giấy tờ (Chủ tịch, Phó Chủ tịch, Ủy viên, Chủ hộ, Giám đốc) KHÔNG PHẢI là chủ sở hữu.
+4. Nếu người dùng hỏi về Chủ sở hữu và không có phần summary, hãy chú ý tìm người có các từ "Ông:", "Bà:" kèm theo Năm sinh và CMND.
 5. LUÔN trả lời ĐÚNG TRỌNG TÂM câu hỏi. Ví dụ: Hỏi địa chỉ thì CHỈ trả lời địa chỉ, không trả lời tên chủ sở hữu.
+6. LƯU Ý TỪ VỰNG: "cmnd_cccd" chính là số Chứng minh nhân dân (CMND) hoặc Căn cước công dân (CCCD). "chu_so_huu" là Chủ sở hữu.
 
 VÍ DỤ CÁCH ĐỌC:
 Văn bản trích xuất có đoạn:
-"Phạm Văn Thông | Mục I - Chủ sở hữu nhà ở và sử dụng đất ở
-Bà: Hồ Lệ Hồng | - Sinh năm: 1959 | CMND số: 020168965"
+"# document_summary
+- chu_so_huu: NGUYỄN VĂN A
+- parcel_number: 123"
+Và một đoạn khác:
+"Trần Văn B | KT. Chủ tịch"
 Câu hỏi: "Ai là chủ sở hữu?"
-Cách tư duy: "Phạm Văn Thông" nằm cạnh tiêu đề Mục I, có thể do lỗi định dạng dòng, đây là người ký giấy. "Bà: Hồ Lệ Hồng" có CMND và Năm sinh.
-Câu trả lời đúng: "Chủ sở hữu là Bà Hồ Lệ Hồng."
+Cách tư duy: Có phần "# document_summary" ghi rõ holder_name là Nguyễn Văn A. Trần Văn B là người ký giấy.
+Câu trả lời đúng: "Chủ sở hữu là Ông Nguyễn Văn A."
 
 NỘI DUNG TRÍCH XUẤT:
 {context}

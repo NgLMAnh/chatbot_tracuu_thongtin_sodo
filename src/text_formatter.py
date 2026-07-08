@@ -187,13 +187,13 @@ def format_as_markdown(page_blocks_dict, document_id=None, doc_json=None):
         holder = doc_json.get("holder", {})
         land = doc_json.get("land_parcel", {})
         summary_fields = {
-            "holder_name": holder.get("name"),
-            "holder_id_number": holder.get("id_number"),
-            "holder_address": holder.get("address"),
-            "holder_birthday": holder.get("birthday"),
-            "parcel_number": land.get("parcel_number"),
-            "map_sheet_number": land.get("map_sheet_number"),
-            "area_m2": land.get("area_m2"),
+            "chu_so_huu": holder.get("name"),
+            "cmnd_cccd": holder.get("id_number"),
+            "dia_chi": holder.get("address"),
+            "nam_sinh": holder.get("birthday"),
+            "thua_dat_so": land.get("parcel_number"),
+            "to_ban_do_so": land.get("map_sheet_number"),
+            "dien_tich_m2": land.get("area_m2"),
         }
         for key, value in summary_fields.items():
             value = _escape_value(value)

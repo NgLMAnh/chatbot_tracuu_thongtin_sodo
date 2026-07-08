@@ -21,16 +21,23 @@ class LayoutAnalyzer:
         self.use_gpu = layout_cfg.get("use_gpu", False)
         self.show_log = layout_cfg.get("show_log", False)
         
-        self.engine_name = "PPStructureV3"
-        self.engine = self._init_ppstructure_v3()
-        if self.engine is None:
-            self.engine_name = "PPStructure"
-            self.engine = self._init_ppstructure()
+        self.use_ppstructure = layout_cfg.get("use_ppstructure", True)
+        
+        if self.use_ppstructure:
+            self.engine_name = "PPStructureV3"
+            self.engine = self._init_ppstructure_v3()
+            if self.engine is None:
+                self.engine_name = "PPStructure"
+                self.engine = self._init_ppstructure()
 
-        if self.engine is None:
-            raise ImportError("Could not initialize PPStructureV3 or PPStructure from paddleocr.")
+            if self.engine is None:
+                raise ImportError("Could not initialize PPStructureV3 or PPStructure from paddleocr.")
 
-        print(f"LayoutAnalyzer initialized with {self.engine_name} on CPU={not self.use_gpu}.")
+            print(f"LayoutAnalyzer initialized with {self.engine_name} on CPU={not self.use_gpu}.")
+        else:
+            self.engine = None
+            self.engine_name = "Disabled"
+            print("LayoutAnalyzer initialized WITHOUT PPStructure (using pure PaddleOCR).")
 
     def _init_ppstructure_v3(self):
         if PPStructureV3 is None:
@@ -84,6 +91,12 @@ class LayoutAnalyzer:
             raise ValueError(f"Could not read image at: {image_path}")
             
         height, width = img.shape[:2]
+        
+        if not self.use_ppstructure or self.engine is None:
+            return {
+                "blocks": [],
+                "image_size": (width, height)
+            }
         
         # Thực hiện phân tích layout
         result = self.engine(img)

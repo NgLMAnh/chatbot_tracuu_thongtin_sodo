@@ -52,18 +52,40 @@ class FieldExtractor:
                         return match.group(0)
                 elif len(potential_val) >= 2:
                     if field_cfg.get("multiline"):
-                        return self._extend_multiline(anchor_block, potential_val, graph)
+                        return self._extend_multiline(anchor_block, potential_val, graph, field_cfg)
                     return potential_val
+
+        if regex_pattern:
+            matches = list(re.finditer(regex_pattern, text))
+            if matches:
+                return matches[-1].group(0)
 
         ordered_candidates = self._ordered_neighbor_candidates(anchor_block, field_cfg, graph)
         if not ordered_candidates:
             return None
 
         first_raw_val = None
+        if field_cfg.get("join_same_row") and ordered_candidates:
+            primary = ordered_candidates[0]
+            same_row_cands = [
+                c for c in ordered_candidates
+                if graph._same_row(primary["bbox"], c["bbox"]) and c["bbox"][2] > anchor_block["bbox"][0] - 50
+            ]
+            same_row_cands.sort(key=lambda x: x["bbox"][0])
+            joined_text = " ".join([c["text"] for c in same_row_cands])
+            
+            if field_cfg.get("multiline"):
+                joined_text = self._extend_multiline(primary, joined_text, graph, field_cfg)
+                
+            if regex_pattern:
+                match = re.search(regex_pattern, joined_text)
+                return match.group(0) if match else None
+            return joined_text
+
         for candidate in ordered_candidates:
             raw_val = candidate["text"]
             if field_cfg.get("multiline"):
-                raw_val = self._extend_multiline(candidate, raw_val, graph)
+                raw_val = self._extend_multiline(candidate, raw_val, graph, field_cfg)
 
             if first_raw_val is None:
                 first_raw_val = raw_val
@@ -100,12 +122,13 @@ class FieldExtractor:
 
         return candidates
 
-    def _extend_multiline(self, start_block, current_text, graph):
+    def _extend_multiline(self, start_block, current_text, graph, field_cfg):
         extended_text = current_text
         current_block_id = start_block["block_id"]
+        max_dist = field_cfg.get("max_distance_y", 150)
 
-        for _ in range(2):
-            below_neighbors = graph.get_neighbors(current_block_id, "below", max_distance=100)
+        for _ in range(3):
+            below_neighbors = graph.get_neighbors(current_block_id, "below", max_distance=max_dist)
             if not below_neighbors:
                 break
 
@@ -128,7 +151,7 @@ class FieldExtractor:
             if any(keyword in next_text for keyword in stop_keywords):
                 break
 
-            if abs(start_block["bbox"][0] - next_block["bbox"][0]) < 150:
+            if abs(start_block["bbox"][0] - next_block["bbox"][0]) < 250:
                 extended_text += " " + next_block["text"]
                 current_block_id = next_block["block_id"]
             else:
